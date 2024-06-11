@@ -1,5 +1,6 @@
 package com.example.UberProject_BookingService.services;
 
+import com.example.UberProject_BookingService.apis.LocationServiceApi;
 import com.example.UberProject_BookingService.dto.CreateBookingResponseDto;
 import com.example.UberProject_BookingService.dto.CreatingBookingDto;
 import com.example.UberProject_BookingService.dto.DriverLocationDto;
@@ -14,6 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -30,13 +34,17 @@ public class BookingServiceImpl implements BookingService{
     private final BookingRepository bookingRepository;
     private final RestTemplate restTemplate;
 
-    private static final String LOCATOR_SERVICE = "http://localhost:7777";
+    private final LocationServiceApi locationServiceApi;
+
+    //private static final String LOCATOR_SERVICE = "http://localhost:7777";
 
     public BookingServiceImpl(PassengerRepository passengerRepository,
-                              BookingRepository bookingRepository){
+                              BookingRepository bookingRepository,
+                              LocationServiceApi locationServiceApi){
         this.passengerRepository=passengerRepository;
         this.bookingRepository=bookingRepository;
         this.restTemplate = new RestTemplate();
+        this.locationServiceApi=locationServiceApi;
     }
 
     @Override
@@ -55,21 +63,48 @@ public class BookingServiceImpl implements BookingService{
                 .latitude(bookingDto.getStartLocation().getLatitude())
                 .longitude(bookingDto.getStartLocation().getLongitude()).build();
 
-        ResponseEntity<DriverLocationDto[]> result = restTemplate.postForEntity(LOCATOR_SERVICE +
-                "/api/location/nearByDriver", request, DriverLocationDto[].class);
-
-       List<DriverLocationDto> driverLocations = Arrays.asList(Objects.requireNonNull(result.getBody()));
-
-       if(result.getStatusCode().is2xxSuccessful()) {
-           driverLocations.forEach(driverLocationDto -> {
-               System.out.println(driverLocationDto.getDriverId() + " " + "lat: " + driverLocationDto.getLatitude() +
-                       "long: " + driverLocationDto.getLongitude());
-           });
-       }
+        processNearByDriversAsync(request);
+//  Async communication between services via RestTemplate
+//        ResponseEntity<DriverLocationDto[]> result = restTemplate.postForEntity(LOCATOR_SERVICE +
+//                "/api/location/nearByDriver", request, DriverLocationDto[].class);
+//
+//       List<DriverLocationDto> driverLocations = Arrays.asList(Objects.requireNonNull(result.getBody()));
+//
+//       if(result.getStatusCode().is2xxSuccessful()) {
+//           driverLocations.forEach(driverLocationDto -> {
+//               System.out.println(driverLocationDto.getDriverId() + " " + "lat: " + driverLocationDto.getLatitude() +
+//                       "long: " + driverLocationDto.getLongitude());
+//           });
+//       }
 
         return CreateBookingResponseDto.builder()
                 .bookingId(newBooking.getId())
                 .bookingstatus(newBooking.getBookingStatus().toString())
                 .build();
+    }
+
+    //Async communication between services with the help of retrofit and eureka service discovery
+    private void processNearByDriversAsync( NearByDriverRequestDto nearByDriverRequestDto) {
+        Call<DriverLocationDto[]> call= locationServiceApi.getNearByDriver(nearByDriverRequestDto);
+        call.enqueue(new Callback<DriverLocationDto[]>() {
+            @Override
+            public void onResponse(Call<DriverLocationDto[]> call, Response<DriverLocationDto[]> response) {
+                if(response.isSuccessful() && response.body() !=null) {
+                    List<DriverLocationDto> driverLocations = Arrays.asList(Objects.requireNonNull(response.body()));
+                    driverLocations.forEach(driverLocationDto -> {
+                        System.out.println(driverLocationDto.getDriverId() + " " + "lat: " + driverLocationDto.getLatitude() +
+                       "long: " + driverLocationDto.getLongitude());
+           });
+                }else {
+                    System.out.println("Request Failed " + response.message());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<DriverLocationDto[]> call, Throwable throwable) {
+                throwable.printStackTrace();
+
+            }
+        });
     }
 }
