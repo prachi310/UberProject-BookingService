@@ -1,6 +1,7 @@
 package com.example.UberProject_BookingService.services;
 
 import com.example.UberProject_BookingService.apis.LocationServiceApi;
+import com.example.UberProject_BookingService.apis.UberSocketApi;
 import com.example.UberProject_BookingService.dto.*;
 import com.example.UberProject_BookingService.repositories.BookingRepository;
 import com.example.UberProject_BookingService.repositories.DriverRepository;
@@ -35,18 +36,21 @@ public class BookingServiceImpl implements BookingService{
     private final RestTemplate restTemplate;
 
     private final LocationServiceApi locationServiceApi;
+    private final UberSocketApi uberSocketApi;
 
     //private static final String LOCATOR_SERVICE = "http://localhost:7777";
 
     public BookingServiceImpl(PassengerRepository passengerRepository,
                               BookingRepository bookingRepository,
                               LocationServiceApi locationServiceApi,
-                              DriverRepository driverRepository){
+                              DriverRepository driverRepository,
+                              UberSocketApi uberSocketApi){
         this.passengerRepository=passengerRepository;
         this.bookingRepository=bookingRepository;
         this.restTemplate = new RestTemplate();
         this.locationServiceApi=locationServiceApi;
         this.driverRepository=driverRepository;
+        this.uberSocketApi=uberSocketApi;
     }
 
     @Override
@@ -65,9 +69,9 @@ public class BookingServiceImpl implements BookingService{
                 .latitude(bookingDto.getStartLocation().getLatitude())
                 .longitude(bookingDto.getStartLocation().getLongitude()).build();
 
-        processNearByDriversAsync(request);
+        processNearByDriversAsync(request,bookingDto.getPassengerId());
 //  Async communication between services via RestTemplate
-//        ResponseEntity<DriverLocationDto[]> result = restTemplate.postForEntity(LOCATOR_SERVICE +
+        //        ResponseEntity<DriverLocationDto[]> result = restTemplate.postForEntity(LOCATOR_SERVICE +
 //                "/api/location/nearByDriver", request, DriverLocationDto[].class);
 //
 //       List<DriverLocationDto> driverLocations = Arrays.asList(Objects.requireNonNull(result.getBody()));
@@ -100,7 +104,7 @@ public class BookingServiceImpl implements BookingService{
     }
 
     //Async communication between services with the help of retrofit and eureka service discovery
-    private void processNearByDriversAsync( NearByDriverRequestDto nearByDriverRequestDto) {
+    private void processNearByDriversAsync( NearByDriverRequestDto nearByDriverRequestDto,Long passengerId) {
         Call<DriverLocationDto[]> call= locationServiceApi.getNearByDriver(nearByDriverRequestDto);
         call.enqueue(new Callback<DriverLocationDto[]>() {
             @Override
@@ -111,6 +115,9 @@ public class BookingServiceImpl implements BookingService{
                         System.out.println(driverLocationDto.getDriverId() + " " + "lat: " + driverLocationDto.getLatitude() +
                        "long: " + driverLocationDto.getLongitude());
            });
+                    raiseRideRequest(RideRequestDto.builder()
+                            .passengerId(passengerId).build());
+
                 }else {
                     System.out.println("Request Failed " + response.message());
                 }
@@ -120,6 +127,26 @@ public class BookingServiceImpl implements BookingService{
             public void onFailure(Call<DriverLocationDto[]> call, Throwable throwable) {
                 throwable.printStackTrace();
 
+            }
+        });
+    }
+
+    private void raiseRideRequest(RideRequestDto rideRequestDto){
+        Call<Boolean> call = uberSocketApi.gerNearByDrivers(rideRequestDto);
+        call.enqueue(new Callback<Boolean>() {
+            @Override
+            public void onResponse(Call<Boolean> call, Response<Boolean> response) {
+                if(response.isSuccessful() && response.body() !=null) {
+                    Boolean result=response.body();
+                    System.out.println("Driver Response is : "+ result.toString());
+                }else {
+                    System.out.println("Request Failed " + response.message());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Boolean> call, Throwable throwable) {
+                throwable.printStackTrace();
             }
         });
     }
