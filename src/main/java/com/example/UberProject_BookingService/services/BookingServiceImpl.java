@@ -10,17 +10,13 @@ import com.example.UberProject_EntityService.models.Booking;
 import com.example.UberProject_EntityService.models.BookingStatus;
 import com.example.UberProject_EntityService.models.Driver;
 import com.example.UberProject_EntityService.models.Passenger;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -69,7 +65,7 @@ public class BookingServiceImpl implements BookingService{
                 .latitude(bookingDto.getStartLocation().getLatitude())
                 .longitude(bookingDto.getStartLocation().getLongitude()).build();
 
-        processNearByDriversAsync(request,bookingDto.getPassengerId());
+        processNearByDriversAsync(request,bookingDto.getPassengerId(),newBooking.getId());
 //  Async communication between services via RestTemplate
         //        ResponseEntity<DriverLocationDto[]> result = restTemplate.postForEntity(LOCATOR_SERVICE +
 //                "/api/location/nearByDriver", request, DriverLocationDto[].class);
@@ -104,7 +100,7 @@ public class BookingServiceImpl implements BookingService{
     }
 
     //Async communication between services with the help of retrofit and eureka service discovery
-    private void processNearByDriversAsync( NearByDriverRequestDto nearByDriverRequestDto,Long passengerId) {
+    private void processNearByDriversAsync(NearByDriverRequestDto nearByDriverRequestDto, Long passengerId, Long BookingId) {
         Call<DriverLocationDto[]> call= locationServiceApi.getNearByDriver(nearByDriverRequestDto);
         call.enqueue(new Callback<DriverLocationDto[]>() {
             @Override
@@ -116,7 +112,8 @@ public class BookingServiceImpl implements BookingService{
                        "long: " + driverLocationDto.getLongitude());
            });
                     raiseRideRequest(RideRequestDto.builder()
-                            .passengerId(passengerId).build());
+                            .passengerId(passengerId)
+                            .bookingId(BookingId).build());
 
                 }else {
                     System.out.println("Request Failed " + response.message());
@@ -132,7 +129,7 @@ public class BookingServiceImpl implements BookingService{
     }
 
     private void raiseRideRequest(RideRequestDto rideRequestDto){
-        Call<Boolean> call = uberSocketApi.gerNearByDrivers(rideRequestDto);
+        Call<Boolean> call = uberSocketApi.raiseRideRequest(rideRequestDto);
         call.enqueue(new Callback<Boolean>() {
             @Override
             public void onResponse(Call<Boolean> call, Response<Boolean> response) {

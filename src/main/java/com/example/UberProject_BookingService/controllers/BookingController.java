@@ -8,6 +8,7 @@ import com.example.UberProject_BookingService.services.BookingService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 @RestController
 @RequestMapping("api/v1/booking")
@@ -27,7 +28,7 @@ public class BookingController {
 
     }
 
-    @PatchMapping("/{bookingId}")
+   @PostMapping("/{bookingId}")
     public ResponseEntity<UpdateBookingResponseDto> updateBooking
             (@RequestBody UpdateBookingRequestDto requestDto,
              @PathVariable Long bookingId){
