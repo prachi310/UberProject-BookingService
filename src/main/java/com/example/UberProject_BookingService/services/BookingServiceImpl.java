@@ -87,7 +87,7 @@ public class BookingServiceImpl implements BookingService{
 
     @Override
     public UpdateBookingResponseDto updateBooking(UpdateBookingRequestDto requestDto, Long bookingId) {
-
+        System.out.println(requestDto.getDriverId().get());
         Optional<Driver> driver = driverRepository.findById(requestDto.getDriverId().get());
         bookingRepository.updateBookingStatusAndDriverById
                 (bookingId, BookingStatus.SCHEDULED,driver.get());
