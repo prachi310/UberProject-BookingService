@@ -1,14 +1,15 @@
-Booking Service
-Overview
+#Booking Service
+
+##Overview
 Manages all booking-related functionalities.
 
-Technologies Used
+##Technologies Used
 Spring Boot, Spring Data JPA, spring socket,Kafka,Retrofit
 
 ##Postman Collection 
 https://github.com/prachi310/uber-microservices-project/blob/main/UberBookingService.postman_collection.json
 
-Setup
+##Setup
 Clone the repository.
 Install dependencies with gradle build.
 Configure MYSQL database properties in application properties (application.yml).
